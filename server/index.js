@@ -8,7 +8,7 @@ const MONGODB_URI=`mongodb+srv://${process.env.MONGO_USER}:${process.env.MONGO_P
 const db = new Database(MONGODB_URI);
 const passport=require('./config/passport-config');
 const gitHubAuth=require('./routes/gitHubAuth')
-
+const chatRoutes = require("./routes/chatRoutes");
 db.connect().catch((err) =>
   console.error("Error connecting to database:", err)
 );
@@ -21,7 +21,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
 app.use('/auth',gitHubAuth);
-
+app.use("/chat", chatRoutes);
 
 
 app.get("/server-status", (req, res) => {

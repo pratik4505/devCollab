@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "module": "Node16",
+        "target": "ES2022",
+        "checkJs": true,
+        "lib": [
+            "ES2022"
+        ],
+        "jsx": "react" // Add this line to enable JSX support
+    },
+    "exclude": [
+        "node_modules"
+    ]
+}

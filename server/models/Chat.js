@@ -5,7 +5,7 @@ const chatSchema = new mongoose.Schema({
   members: {
     type: Map,
     of: {
-      gitId: String,
+      
       avatarUrl: String,
     },
   },

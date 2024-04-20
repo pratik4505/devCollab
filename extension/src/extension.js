@@ -65,11 +65,13 @@ async function activate(context) {
         vscode.window.showErrorMessage("No active text editor found.");
         return;
       }
-
+      let startLineNumber;
+      let endLineNumber;
       // Get the selected line numbers
-      const selectedLineNumbers = editor.selections.map(
-        (selection) => selection.start.line + 1
-      );
+      const selectedLinesInfo = editor.selections.map((selection) => {
+        startLineNumber = selection.start.line + 1; // Convert from 0-based index to 1-based line number
+        endLineNumber = selection.end.line + 1; // Convert from 0-based index to 1-based line number
+      });
       // Path to the .git directory
       const gitPath = path.join(workspaceFolder.uri.fsPath, ".git");
 
@@ -136,7 +138,7 @@ async function activate(context) {
           workspaceFolder.uri.fsPath,
           editor.document.uri.fsPath
         );
-        const linki = `${url}/blob/${words[1]}/${relativeFilePath}/#L${selectedLineNumbers}`;
+        const linki = `${url}/blob/${words[1]}/${relativeFilePath}/#L${startLineNumber}-L${endLineNumber}`;
         const convertedPermalink = linki
           .replace(/%5C/g, "/")
           .replace(/\\/g, "/");

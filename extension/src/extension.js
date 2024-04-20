@@ -7,10 +7,6 @@ const path = require("path");
 const io = require("socket.io-client");
 const SERVER_URL = "https://devcollab-w48p.onrender.com";
 const NodeDependenciesProvider = require("./Nodepack");
-// const Peer = require('peerjs');
-// let peer;
-// const groupConnections = {};
-
 
 const socket = io(SERVER_URL.replace("http", "ws"), {
   transports: ["websocket"],
@@ -35,58 +31,33 @@ async function activate(context) {
   socket.on("connect_error", (error) => {
     console.error("Socket.IO connection error:", error);
   });
-  socket.emit("setup", "pratik4505");
-
+  
   socket.on("receiveMessage", (data) => {
     const { senderId, message, createdAt, repoName, chatId, avatarUrl } = data;
     console.log("receiveMessage", data);
-    // Check if a webview panel exists for this chatId
-    // if (chatPanels[chatId]) {
-    // If the panel is open, send the message to the webview
+    
+    if(chatPanels[chatId])
     chatPanels[chatId].webview.postMessage(data);
-    // } else {
-    //   vscode.window.showInformationMessage(
-    //     `New Message Received:\nRepo: ${repoName}\nSender: ${senderId}\nMessage: ${message}`
-    //   );
-    // }
+    
+    if(!chatPanels[chatId])
     vscode.window.showInformationMessage(
       `New Message Received:\nRepo: ${repoName}\nSender: ${senderId}\nMessage: ${message}`
     );
   });
 
-  // peer = new Peer('pratik4505');
+  
 
-  // peer.on('connection', (connection) => {
-  //   console.log('Connected to peer:', connection.peer);
-  //   groupConnections[connection.peer] = connection;
+  let startCommand = vscode.commands.registerCommand("devcollab.start", async () => {
+    const secrets = context["secrets"];
+        const token = await secrets.get("token");
+        const gitId = await secrets.get("gitId");
 
-  //   connection.on('data', (data) => {
-  //     console.log('Received data from peer:', data);
-  //   });
+        if(token){
+          socket.emit("setup", gitId);
+        }else{
+          authenticateWithGitHub(context,socket);
+        }
 
-  //   connection.on('close', () => {
-  //     delete groupConnections[connection.peer];
-  //     console.log('Connection closed with peer:', connection.peer);
-  //   });
-  // });
-
-  // peer.on('call', (call) => {
-  //   console.log('Received call from peer:', call.peer);
-
-  //   navigator.mediaDevices.getUserMedia({ audio: true })
-  //     .then((stream) => {
-  //       call.answer(stream); // Answer with the local audio stream
-  //       call.on('stream', (remoteStream) => {
-  //         playAudioStream(remoteStream); // Play the remote audio stream
-  //       });
-  //     })
-  //     .catch((error) => {
-  //       console.error('Error accessing microphone:', error);
-  //     });
-  // });
-
-  let startCommand = vscode.commands.registerCommand("devcollab.start", () => {
-    authenticateWithGitHub(context);
   });
 
 
@@ -322,14 +293,14 @@ async function activate(context) {
   context.subscriptions.push(chatCommand);
 
   // Create UI elements (e.g., a button)
-  let loginButton = vscode.window.createStatusBarItem(
-    vscode.StatusBarAlignment.Left
-  );
-  loginButton.text = "$(sign-in) Login with GitHub";
-  loginButton.command = "devcollab.start"; // Bind the command to the button
+  // let loginButton = vscode.window.createStatusBarItem(
+  //   vscode.StatusBarAlignment.Left
+  // );
+  // loginButton.text = "$(sign-in) Login with GitHub";
+  // loginButton.command = "devcollab.start"; // Bind the command to the button
 
-  // Show the button in the status bar
-  loginButton.show();
+  // // Show the button in the status bar
+  // loginButton.show();
 }
 
 
@@ -550,12 +521,7 @@ function getMessagesWebviewContent(messages, gitId, chat, socket) {
                   }
               }
               
-              ${socket}.on('online', (data) => {
-                  if (chat.members[data.gitId]) {
-                      updateOnlineStatus(data.gitId, true);
-                  }
-              });
-              
+            
               document.getElementById('sendMessageButton').addEventListener('click', function() {
                   const messageInput = document.getElementById('messageInput');
                   const message = messageInput.value.trim();

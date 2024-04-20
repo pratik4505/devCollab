@@ -1,11 +1,39 @@
-
-const vscode = require("vscode");
+require("dotenv").config();
+const vscode = require( "vscode");
 const { authenticateWithGitHub } = require("./authenticate");
 const axios = require("axios");
+const io = require("socket.io-client");
+const SERVER_URL ="http://localhost:4000";
+const socket = io(SERVER_URL, {
+  transports: ["websocket"],
+  upgrade: false,
+  withCredentials: true,
+  pingInterval: 1000 * 60,
+  pingTimeout: 1000 * 60 * 3,
+});
 
+let chatPanels = {};
 
 async function activate(context) {
   console.log('Congratulations, your extension "devcollab" is now active!');
+
+  socket.on("connect", () => {
+    console.log("Connected to Socket.IO server");
+  });
+
+  socket.on("receiveMessage", (data) => {
+    const { senderId, message, createdAt, repoName, chatId } = data;
+
+    // Check if a webview panel exists for this chatId
+    if (chatPanels[chatId]) {
+      // If the panel is open, send the message to the webview
+      chatPanels[chatId].webview.postMessage(data);
+    } else {
+      vscode.window.showInformationMessage(
+        `New Message Received:\nRepo: ${repoName}\nSender: ${senderId}\nMessage: ${message}`
+      );
+    }
+  });
 
   let startCommand = vscode.commands.registerCommand("devcollab.start", () => {
     authenticateWithGitHub(context);
@@ -18,13 +46,15 @@ async function activate(context) {
         //@ts-ignore
         const secrets = context["secrets"];
         const token = await secrets.get("token");
+        const gitId = await secrets.get("gitId");
         if (!token) {
           vscode.window.showErrorMessage("Token not found");
           return;
         }
+        console.log(SERVER_URL)
         console.log("token", token);
         const response = await axios.get(
-          "http://localhost:4000/chat/getChats",
+          `${SERVER_URL}/chat/getChats`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -39,15 +69,15 @@ async function activate(context) {
           "chatsPanel",
           "Chats",
           vscode.ViewColumn.Two,
-          {}
+          { enableScripts: true }
         );
 
         // Handle message fetching when a chat is clicked
-        panel.webview.onDidReceiveMessage(async (chat) => {
-          console.log(chat);
+        panel.webview.onDidReceiveMessage(async (data) => {
+          console.log(data);
           try {
             const messagesResponse = await axios.get(
-              `http://localhost:4000/chat/getMessages?chatId=${chat.chatId}`,
+              `${SERVER_URL}/chat/getMessages?chatId=${data.chatId}`,
               {
                 headers: {
                   Authorization: `Bearer ${token}`,
@@ -56,22 +86,66 @@ async function activate(context) {
             );
             const messages = messagesResponse.data;
             console.log(messages);
+            const selectedChat = chats.find((chat) => chat._id === data.chatId);
 
             // Dispose of the previous webview panel
-            if (panel) {
-              panel.dispose();
-            }
 
             // Create a new webview panel to display messages
-            panel = vscode.window.createWebviewPanel(
+            let newPanel = vscode.window.createWebviewPanel(
               "messagesPanel",
               "Messages",
-              vscode.ViewColumn.Two,
-              {}
+              vscode.ViewColumn.Three,
+              { enableScripts: true }
             );
+            chatPanels[data.chatId] = newPanel;
+
+            newPanel.webview.onDidReceiveMessage(async (data) => {
+              // Extract chatId and message from the received data
+              const { chatId, message, repoName } = data;
+
+              socket.emit("sendMessage", {
+                senderId: gitId,
+                message,
+                room: chatId,
+                createdAt: new Date().toISOString(),
+                repoName: repoName,
+              });
+
+              try {
+                // Assuming you have the token variable defined somewhere
+
+                // Send a POST request to the server
+                const response = await axios.post(
+                  `${SERVER_URL}/chat/postMessage`,
+                  {
+                    chatId: chatId,
+                    message: message,
+                  },
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                    },
+                  }
+                );
+
+                // Handle the response
+                console.log("Response from server:", response.data);
+              } catch (error) {
+                // Handle errors
+                console.error("Error:", error.message);
+              }
+            });
+
+            newPanel.onDidDispose(() => {
+              chatPanels[data.chatId] = null;
+            });
 
             // Display messages in the new webview panel
-            panel.webview.html = getMessagesWebviewContent(messages);
+            newPanel.webview.html = getMessagesWebviewContent(
+              messages,
+              gitId,
+              selectedChat
+            );
           } catch (error) {
             vscode.window.showErrorMessage(
               "Failed to fetch messages: " + error.message
@@ -79,7 +153,6 @@ async function activate(context) {
           }
         });
 
-    
         panel.webview.html = getWebviewContent(chats);
       } catch (error) {
         vscode.window.showErrorMessage(
@@ -92,7 +165,6 @@ async function activate(context) {
   // Add the disposable to context subscriptions
   context.subscriptions.push(startCommand);
   context.subscriptions.push(chatCommand);
-  
 
   // Create UI elements (e.g., a button)
   let loginButton = vscode.window.createStatusBarItem(
@@ -124,20 +196,33 @@ function getWebviewContent(chats) {
   `;
 
   chats.forEach((chat) => {
-      htmlContent += `<li><button href="#" id="${chat._id}" class="chat-link">${chat.repoName}</button></li>`;
+    htmlContent += `<li><button id="${chat._id}" class="chat-link">${chat.repoName}</button></li>`;
   });
 
   htmlContent += `
           </ul>
+          <button id="sendButton">Send Message to Extension</button>
+          
           <script>
+          const vscode = acquireVsCodeApi();
               // Add click event listener for each chat link
               const chatLinks = document.querySelectorAll('.chat-link');
               chatLinks.forEach(link => {
                   link.addEventListener('click', function(event) {
                       event.preventDefault();
                       const chatId = event.target.id;
-                      vscode.postMessage({ command: 'chatClicked', chatId: chatId });
+                     
+                     
+                   
+                          vscode.postMessage({ command: 'chatClicked', chatId: chatId });
+                      
+                     
                   });
+              });
+
+              // Add click event listener for sendButton
+              document.getElementById('sendButton').addEventListener('click', () => {
+                  vscode.postMessage({ text: 'Hello from Webview!' });
               });
           </script>
       </body>
@@ -146,8 +231,7 @@ function getWebviewContent(chats) {
 
   return htmlContent;
 }
-
-function getMessagesWebviewContent(messages) {
+function getMessagesWebviewContent(messages, gitId, chat) {
   // Construct HTML content to display messages
   let htmlContent = `
       <!DOCTYPE html>
@@ -158,20 +242,119 @@ function getMessagesWebviewContent(messages) {
           <title>Messages</title>
           <style>
               /* Add your CSS styles here */
+              .message {
+                  display: flex;
+                  padding: 20px;
+                  border-radius: 4px;
+                  margin-bottom: 40px;
+                  max-width: 50%;
+              }
+
+              .incoming {
+                  background: #63ceff;
+                  color: #fff;
+                  margin-right: auto;
+              }
+
+              .outgoing {
+                  background: #e9eafd;
+                  color: #787986;
+                  margin-left: auto;
+              }
+
+              /* Add style for input and button */
+              .message-input {
+                  display: flex;
+                  margin-top: 20px;
+              }
+
+              .message-input input[type="text"] {
+                  flex: 1;
+                  padding: 10px;
+                  border: 1px solid #ccc;
+                  border-radius: 4px;
+                  margin-right: 10px;
+              }
+
+              .message-input button[type="submit"] {
+                  padding: 10px 20px;
+                  border: none;
+                  background-color: #007bff;
+                  color: #fff;
+                  border-radius: 4px;
+                  cursor: pointer;
+              }
           </style>
       </head>
       <body>
           <h1>Messages</h1>
-          <ul>
+          <ul id="messageList" class="message">
   `;
 
   // Add each message to the list
+  console.log("In messae panel",messages,chat)
   messages.forEach((message) => {
-    htmlContent += `<li>${message.message}</li>`;
+      const messageClass = message.senderId === gitId ? "outgoing" : "incoming";
+
+      // Construct the HTML for the message including sender's name and avatar
+      htmlContent += `
+          <li class="message ${messageClass}">
+              <div class="message-sender">
+                   <img src="${chat.members[message.senderId].avatarUrl}" alt="${message.senderId}" class="sender-avatar">
+                  <span class="sender-name">${message.senderId}</span>
+              </div>
+              <div class="message-text">${message.message}</div>
+          </li>`;
   });
 
   htmlContent += `
           </ul>
+
+          <!-- Input box and send button -->
+          <div class="message-input">
+              <input type="text" id="messageInput" placeholder="Type your message...">
+              <button type="submit" id="sendMessageButton">Send</button>
+          </div>
+
+          <script>
+              // Add event listener for sending message
+              const vscode = acquireVsCodeApi();
+              const messageList = document.getElementById('messageList');
+
+              document.getElementById('sendMessageButton').addEventListener('click', function() {
+                  const messageInput = document.getElementById('messageInput');
+                  const message = messageInput.value.trim();
+                  if (message) {
+                      const listItem = document.createElement('li');
+                      listItem.innerHTML = 
+                          '<div class="message-sender">' +
+                          '<img src="' + "${chat.members[gitId].avatarUrl}" + '" alt="' + "${gitId}" + '" class="sender-avatar">' +
+                          '<span class="sender-name">' + "${gitId}" + '</span>' +
+                          '</div>' +
+                          '<div class="message-text">' + message + '</div>';
+                      listItem.classList.add('message', 'outgoing'); // Add both classes to the listItem
+                      messageList.appendChild(listItem);
+                      
+                      vscode.postMessage({ command: 'sendMessage', message: message, chatId: "${chat._id}", gitId: "${gitId}", repoName: "${chat.repoName}" });
+                      messageInput.value = '';
+                  }
+              });
+
+              // Listen for messages from the extension
+              window.addEventListener('message', event => {
+                const messageData = event.data;
+                const listItem = document.createElement('li');
+                listItem.innerHTML = 
+                    '<div class="message-sender">' +
+                    '<img src="' + "${chat.members}.[messageData.senderId].avatarUrl" + '" alt="' + messageData.senderId + '" class="sender-avatar">' +
+                    '<span class="sender-name">' + messageData.senderId + '</span>' +
+                    '</div>' +
+                    '<div class="message-text">' + messageData.message + '</div>';
+                listItem.classList.add('message', 'incoming'); // Assume all received messages are incoming
+                messageList.appendChild(listItem);
+            });
+            
+          </script>
       </body>
       </html>
   `;
@@ -179,49 +362,11 @@ function getMessagesWebviewContent(messages) {
   return htmlContent;
 }
 
+
 function deactivate() {
   console.log('your extension "devcollab" is now deactivated!');
 }
 
-// function getWebviewContent() {
-//   return `
-//         <!DOCTYPE html>
-//         <html lang="en">
-//         <head>
-//             <meta charset="UTF-8">
-//             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-//             <title>Chat Webview</title>
-//             <style>
-//                 #messages { margin-top: 10px; }
-//                 .message { margin-bottom: 5px; }
-//             </style>
-//         </head>
-//         <body>
-//             <div id="messages"></div>
-//             <input type="text" id="input" />
-//             <button id="sendButton">Send</button>
-
-//             <script>
-//                 const vscode = acquireVsCodeApi();
-//                 const messagesElement = document.getElementById('messages');
-
-//                 document.getElementById('sendButton').addEventListener('click', () => {
-//                     const input = document.getElementById('input').value;
-//                     if (input) {
-//                         const messageElement = document.createElement('div');
-//                         messageElement.textContent = input;
-//                         messageElement.className = 'message';
-//                         messagesElement.appendChild(messageElement);
-
-//                         vscode.postMessage({ text: input });
-//                         document.getElementById('input').value = '';
-//                     }
-//                 });
-//             </script>
-//         </body>
-//         </html>
-//     `;
-// }
 
 module.exports = {
   activate,

@@ -302,7 +302,46 @@ function getWebviewContent(chats) {
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>Chats</title>
           <style>
-              /* Add your CSS styles here */
+          /* Add your CSS styles here */
+          body {
+              font-family: Arial, sans-serif;
+              // background-color: #f0f0f0;
+              margin: 0;
+              padding: 0;
+          }
+          
+          h1 {
+              color: white;
+              text-align: center;
+          }
+          
+          ul {
+              list-style-type: none;
+              padding: 0;
+          }
+          
+          li {
+              margin-bottom: 10px;
+          }
+          
+          .chat-link {
+              display: block;
+              width: 100%;
+              padding: 10px;
+              background-color: #fff;
+              border: 1px solid #ccc;
+              border-radius: 5px;
+              text-align: center;
+              text-decoration: none;
+              color: #333;
+              cursor: pointer;
+              transition: background-color 0.3s ease;
+          }
+          
+          .chat-link:hover {
+              background-color: #f0f0f0;
+          }
+          
           </style>
       </head>
       <body>
@@ -357,48 +396,80 @@ function getMessagesWebviewContent(messages, gitId, chat) {
           <title>Messages</title>
           <style>
               /* Add your CSS styles here */
-              .message {
-                  display: flex;
-                  padding: 20px;
-                  border-radius: 4px;
-                  margin-bottom: 40px;
-                  max-width: 50%;
-              }
+              /* Add your CSS styles here */
 
-              .incoming {
-                  background: #63ceff;
-                  color: #fff;
-                  margin-right: auto;
-              }
+body {
+    font-family: Arial, sans-serif;
+    // background-color: #f9f9f9;
+    margin: 0;
+    padding: 0;
+}
 
-              .outgoing {
-                  background: #e9eafd;
-                  color: #787986;
-                  margin-left: auto;
-              }
+h1 {
+    color: #333;
+    text-align: center;
+}
 
-              /* Add style for input and button */
-              .message-input {
-                  display: flex;
-                  margin-top: 20px;
-              }
+.message {
+    list-style-type: none;
+    padding: 0;
+    backgournd-color:"blue";
+}
 
-              .message-input input[type="text"] {
-                  flex: 1;
-                  padding: 10px;
-                  border: 1px solid #ccc;
-                  border-radius: 4px;
-                  margin-right: 10px;
-              }
+.message li {
+    margin-bottom: 20px;
+    padding: 10px;
+}
 
-              .message-input button[type="submit"] {
-                  padding: 10px 20px;
-                  border: none;
-                  background-color: #007bff;
-                  color: #fff;
-                  border-radius: 4px;
-                  cursor: pointer;
-              }
+.message-sender {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.sender-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.sender-name {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.message-text {
+    word-wrap: break-word;
+}
+
+.message-input {
+    display: flex;
+    margin-top: 20px;
+}
+
+#messageInput {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin-right: 10px;
+}
+
+#sendMessageButton {
+    padding: 10px 20px;
+    background-color: #007bff;
+    border: none;
+    border-radius: 5px;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#sendMessageButton:hover {
+    background-color: #0056b3;
+}
+
           </style>
       </head>
       <body>
@@ -445,8 +516,7 @@ function getMessagesWebviewContent(messages, gitId, chat) {
                       const listItem = document.createElement('li');
                       listItem.innerHTML = 
                           '<div class="message-sender">' +
-                          '<img src="' + "${chat.members[gitId].avatarUrl}" + '" alt="' + "${gitId}" + '" class="sender-avatar">' +
-                          '<span class="sender-name">' + "${gitId}" + '</span>' +
+                           + "${gitId}" + '</span>' +
                           '</div>' +
                           '<div class="message-text">' + message + '</div>';
                       listItem.classList.add('message', 'outgoing'); // Add both classes to the listItem

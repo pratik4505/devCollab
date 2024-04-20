@@ -1,4 +1,5 @@
 let io;
+const Chat=require('./models/Chat')
 exports.init = (httpServer) => {
   io = require("socket.io")(httpServer);
   return io;
@@ -19,7 +20,30 @@ exports.runIO = (io) => {
       // console.log("setup");
       socket.join(room.toString());
 
-      //console.log('Rooms joined by the socket:', socket.rooms);
+      try {
+        const chats = await Chat.find({
+          [`members.${room}`]: { $exists: true },
+        });
+        // console.log(chats);
+        chats.forEach((chat) => {
+          // Add the socket to the room based on the _id of each matching chat
+          socket.join(chat._id.toString());
+        });
+      } catch (error) {
+        console.error("Error searching chat collection:", error);
+      }
     });
+
+    socket.on("sendMessage", (data) => {
+     console.log(data);
+      socket.to(data.room).emit("receiveMessage", {
+        senderId: data.senderId,
+        message: data.message,
+        createdAt: data.createdAt,
+        repoName:data.repoName,
+        chatId:data.room
+      });
+    });
+
   });
 };

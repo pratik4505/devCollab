@@ -30,7 +30,7 @@ const getMessages=async(req,res)=>{
       .sort({ createdAt: -1 }) // Sort in descending order based on createdAt
       // .limit(limit);
 
-      console.log(messages)
+     // console.log(messages)
     const revMessages = messages.reverse();
 
     res.status(200).json(revMessages);
@@ -41,8 +41,8 @@ const getMessages=async(req,res)=>{
 }
 const postMessage=async(req,res)=>{
   try {
-    const { senderId, chatId, message } = req.body;
-    
+    const { chatId, message } = req.body;
+    const senderId=req.gitId;
     // Create a new message document
     const newMessage = new Message({
       senderId,
@@ -59,33 +59,11 @@ const postMessage=async(req,res)=>{
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
-const createChat = async (req, res) => {
-  const { userData, rideId } = req.body;
 
-  try {
-    // Find the chat associated with the provided rideId
-    let chat = await Chat.findOne({ rideId: rideId });
-
-    // Update the members of the existing chat
-    chat.members.set(userData.userId, {
-      name: userData.name,
-      imageUrl: userData.imageUrl
-    });
-
-    // Save the updated chat
-    await chat.save();
-
-    // Send the updated chat as response
-    res.status(200).json(chat);
-  } catch (error) {
-    console.error("Error updating chat:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
 
 module.exports = {
   getChats,
   getMessages,
   postMessage,
-  createChat,
+ 
 };

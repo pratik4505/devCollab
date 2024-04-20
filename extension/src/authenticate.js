@@ -1,6 +1,6 @@
 const vscode = require("vscode");
 const axios = require("axios");
-
+const SERVER_URL ="https://devcollab-w48p.onrender.com";
 async function startAuthenticationTimer(gitId,globalContext) {
     let duration = 0;
     let timerInterval;
@@ -14,8 +14,8 @@ async function startAuthenticationTimer(gitId,globalContext) {
       } else {
         try {
           // Send request to localhost:4000/auth/getToken
-          const response = await axios.get(
-            "http://localhost:4000/auth/getToken",
+           const response = await axios.get(
+            `${SERVER_URL}/auth/getToken`,
             {
               params: { gitId },
             }
@@ -45,7 +45,7 @@ async function startAuthenticationTimer(gitId,globalContext) {
   }
   
   async function authenticateWithGitHub(globalContext) {
-    const githubAuthUrl = "http://localhost:4000/auth/github"; // Replace this with your actual GitHub authentication URL
+    const githubAuthUrl = `${SERVER_URL}/auth/github`; // Replace this with your actual GitHub authentication URL
   
     try {
       // Open the GitHub authentication URL in the default web browser

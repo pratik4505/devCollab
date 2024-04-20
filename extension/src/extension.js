@@ -3,7 +3,7 @@ const vscode = require( "vscode");
 const { authenticateWithGitHub } = require("./authenticate");
 const axios = require("axios");
 const io = require("socket.io-client");
-const SERVER_URL ="http://localhost:4000";
+const SERVER_URL ="https://devcollab-w48p.onrender.com";
 const socket = io(SERVER_URL, {
   transports: ["websocket"],
   upgrade: false,

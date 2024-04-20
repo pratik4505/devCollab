@@ -15,19 +15,28 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "webview",
-          "title": "Example for webview",
-          "icon": "./assets/logo.png"
+          "id": "package-explorer",
+          "title": "Package Explorer",
+          "icon": "assets/logo.png"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "nodeDependencies.refreshEntry",
+          "when": "view == nodeDependencies",
+          "group": "navigation"
         }
       ]
     },
     "views": {
-      "webview": [
+      "package-explorer": [
         {
-          "type": "webview",
-          "id": "left-panel-webview",
-          "name": "Webview",
-          "icon": "./assets/logo.png"
+          "id": "nodeDependencies",
+          "name": "Node Dependencies",
+          "icon": "assets/logo.png",
+          "contextualTitle": "Package Explorer"
         }
       ]
     },
@@ -39,6 +48,14 @@
       {
         "command": "devcollab.chat",
         "title": "open chat panel"
+      },
+      {
+        "command": "nodeDependencies.refreshEntry",
+        "title": "Refresh",
+        "icon": {
+          "light": "resources/light/refresh.svg",
+          "dark": "resources/dark/refresh.svg"
+        }
       }
     ]
   },

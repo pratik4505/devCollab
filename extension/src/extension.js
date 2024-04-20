@@ -1,9 +1,12 @@
 require("dotenv").config();
-const vscode = require( "vscode");
+const vscode = require("vscode");
 const { authenticateWithGitHub } = require("./authenticate");
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
 const io = require("socket.io-client");
-const SERVER_URL ="https://devcollab-w48p.onrender.com";
+const SERVER_URL = "https://devcollab-w48p.onrender.com";
+const NodeDependenciesProvider = require("./Nodepack");
 const socket = io(SERVER_URL.replace("http", "ws"), {
   transports: ["websocket"],
   upgrade: false,
@@ -16,22 +19,26 @@ let chatPanels = {};
 
 async function activate(context) {
   console.log('Congratulations, your extension "devcollab" is now active!');
-
+  const nodeDependenciesProvider = new NodeDependenciesProvider();
+  vscode.window.registerTreeDataProvider(
+    "nodeDependencies",
+    nodeDependenciesProvider
+  );
   socket.on("connect", () => {
     console.log("Connected to Socket.IO server");
   });
   socket.on("connect_error", (error) => {
     console.error("Socket.IO connection error:", error);
   });
-  socket.emit("setup", 'pratik4505');
+  socket.emit("setup", "pratik4505");
 
   socket.on("receiveMessage", (data) => {
-    const { senderId, message, createdAt, repoName, chatId,avatarUrl } = data;
-    console.log("receiveMessage",data);
+    const { senderId, message, createdAt, repoName, chatId, avatarUrl } = data;
+    console.log("receiveMessage", data);
     // Check if a webview panel exists for this chatId
     // if (chatPanels[chatId]) {
-      // If the panel is open, send the message to the webview
-       chatPanels[chatId].webview.postMessage(data);
+    // If the panel is open, send the message to the webview
+    chatPanels[chatId].webview.postMessage(data);
     // } else {
     //   vscode.window.showInformationMessage(
     //     `New Message Received:\nRepo: ${repoName}\nSender: ${senderId}\nMessage: ${message}`
@@ -45,6 +52,113 @@ async function activate(context) {
   let startCommand = vscode.commands.registerCommand("devcollab.start", () => {
     authenticateWithGitHub(context);
   });
+  context.subscriptions.push(
+    vscode.commands.registerCommand("devcollab.getData", async () => {
+      // Get the active workspace folder
+      const workspaceFolder = vscode.workspace.workspaceFolders[0];
+      if (!workspaceFolder) {
+        vscode.window.showErrorMessage("No workspace folder found.");
+        return;
+      }
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showErrorMessage("No active text editor found.");
+        return;
+      }
+
+      // Get the selected line numbers
+      const selectedLineNumbers = editor.selections.map(
+        (selection) => selection.start.line + 1
+      );
+      // Path to the .git directory
+      const gitPath = path.join(workspaceFolder.uri.fsPath, ".git");
+
+      // Path to the logs/HEAD file
+      // const commitIdPath = path.join(gitPath, "refs", "heads", "main");
+      const commitIdPath = path.join(gitPath, "logs", "HEAD");
+      const headFilePath = path.join(gitPath, "config");
+
+      try {
+        // Read the contents of the HEAD file
+        const headFileContent = fs.readFileSync(commitIdPath, "utf-8");
+
+        // Split the content by lines
+        const line = headFileContent.trim().split("\n");
+
+        // Get the last line
+        const lastLine = line[line.length - 1];
+
+        // Split the last line by whitespace
+        const words = lastLine.trim().split(/\s+/);
+
+        // Check if there are at least two words
+        // const commitId = fs.readFileSync(commitIdPath, "utf-8");
+        const headFile = fs.readFileSync(headFilePath, "utf-8");
+        // Show the contents in a new document
+        const lines = headFile.trim().split("\n");
+
+        // Initialize variable to store URL
+        let url = "";
+
+        // Loop through each line to find the URL
+        for (const line of lines) {
+          if (line.trim().startsWith("url =")) {
+            // Extract the URL from the line and remove ".git" from it
+            url = line
+              .trim()
+              .split("=")[1]
+              .trim()
+              .replace(/\.git$/, "");
+            break; // Exit the loop once URL is found
+          }
+        }
+
+        if (!url) {
+          vscode.window.showWarningMessage("URL not found in HEAD file.");
+        }
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+          vscode.window.showErrorMessage("No active text editor found.");
+          return;
+        }
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(
+          editor.document.uri
+        );
+        if (!workspaceFolder) {
+          vscode.window.showErrorMessage(
+            "No workspace folder found for the active file."
+          );
+          return;
+        }
+
+        // Get the relative file path
+        const relativeFilePath = path.relative(
+          workspaceFolder.uri.fsPath,
+          editor.document.uri.fsPath
+        );
+        const linki = `${url}/blob/${words[1]}/${relativeFilePath}/#L${selectedLineNumbers}`;
+        const convertedPermalink = linki
+          .replace(/%5C/g, "/")
+          .replace(/\\/g, "/");
+        vscode.env.clipboard.writeText(convertedPermalink).then(() => {
+          // Inform the user that the permalink has been copied
+          vscode.window.showInformationMessage(
+            "Converted permalink copied to clipboard"
+          );
+        });
+
+        // vscode.env.openExternal(vscode.Uri.parse(convertedPermalink));
+      } catch (error) {
+        vscode.window.showErrorMessage("Error reading file: " + error.message);
+      }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("devcollab.start", () => {
+      authenticateWithGitHub();
+    })
+  );
 
   let chatCommand = vscode.commands.registerCommand(
     "devcollab.chat",
@@ -58,16 +172,13 @@ async function activate(context) {
           vscode.window.showErrorMessage("Token not found");
           return;
         }
-        console.log(SERVER_URL)
+        console.log(SERVER_URL);
         console.log("token", token);
-        const response = await axios.get(
-          `${SERVER_URL}/chat/getChats`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response = await axios.get(`${SERVER_URL}/chat/getChats`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
         const chats = response.data;
         //console.log(chats);
 
@@ -116,7 +227,7 @@ async function activate(context) {
                 room: chatId,
                 createdAt: new Date().toISOString(),
                 repoName: repoName,
-                avatarUrl:selectedChat.members[gitId]
+                avatarUrl: selectedChat.members[gitId],
               });
 
               try {
@@ -302,13 +413,15 @@ function getMessagesWebviewContent(messages, gitId, chat) {
   // Add each message to the list
   //console.log("In messae panel",messages,chat)
   messages.forEach((message) => {
-      const messageClass = message.senderId === gitId ? "outgoing" : "incoming";
+    const messageClass = message.senderId === gitId ? "outgoing" : "incoming";
 
-      // Construct the HTML for the message including sender's name and avatar
-      htmlContent += `
+    // Construct the HTML for the message including sender's name and avatar
+    htmlContent += `
           <li class="message ${messageClass}">
               <div class="message-sender">
-                   <img src="${chat.members[message.senderId].avatarUrl}" alt="${message.senderId}" class="sender-avatar">
+                   <img src="${
+                     chat.members[message.senderId].avatarUrl
+                   }" alt="${message.senderId}" class="sender-avatar">
                   <span class="sender-name">${message.senderId}</span>
               </div>
               <div class="message-text">${message.message}</div>
@@ -370,12 +483,10 @@ function getMessagesWebviewContent(messages, gitId, chat) {
   return htmlContent;
 }
 
-
 function deactivate() {
   console.log('your extension "devcollab" is now deactivated!');
   socket.disconnect();
 }
-
 
 module.exports = {
   activate,

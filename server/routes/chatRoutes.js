@@ -5,12 +5,11 @@ const {
   postMessage,
   createChat,
 } = require("../controllers/chatController");
+const {authMiddleware}=require('../middleware/authMiddleware')
 
-// const verifyJWT = require("../middleware/verifyJWT");
-
-// router.get("/getChats", verifyJWT, getChats);
-// router.get("/getMessages", verifyJWT, getMessages);
-// router.post("/postMessage", verifyJWT, postMessage);
-// router.post("/createChat", verifyJWT, createChat);
+router.get("/getChats", authMiddleware, getChats); // Middleware applied to this route
+router.get("/getMessages", authMiddleware, getMessages); // Middleware applied to this route
+// router.post("/postMessage", authMiddleware, postMessage); // Middleware applied to this route
+// router.post("/createChat", authMiddleware, createChat); // Middleware applied to this route
 
 module.exports = router;

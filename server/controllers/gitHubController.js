@@ -93,7 +93,7 @@ const getToken = async (req, res) => {
     try {
         // Check if a document with the provided gitId exists in the database
         const token = await Token.findOne({ gitId });
-
+        
         if (token) {
             // If a document is found, send it in the response
             res.status(200).json(token);

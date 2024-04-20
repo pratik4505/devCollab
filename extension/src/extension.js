@@ -1,20 +1,98 @@
-const vscode = require("vscode");
 
+const vscode = require("vscode");
+const { authenticateWithGitHub } = require("./authenticate");
 const axios = require("axios");
 
-let globalContext;
 
-function activate(context) {
+async function activate(context) {
   console.log('Congratulations, your extension "devcollab" is now active!');
-  globalContext = context;
-  // Register command for starting the authentication process
-  let disposable = vscode.commands.registerCommand("devcollab.start", () => {
-    console.log("hello");
-    authenticateWithGitHub();
+
+  let startCommand = vscode.commands.registerCommand("devcollab.start", () => {
+    authenticateWithGitHub(context);
   });
 
+  let chatCommand = vscode.commands.registerCommand(
+    "devcollab.chat",
+    async () => {
+      try {
+        //@ts-ignore
+        const secrets = context["secrets"];
+        const token = await secrets.get("token");
+        if (!token) {
+          vscode.window.showErrorMessage("Token not found");
+          return;
+        }
+        console.log("token", token);
+        const response = await axios.get(
+          "http://localhost:4000/chat/getChats",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        const chats = response.data;
+        //console.log(chats);
+
+        // Display chat messages when a chat is clicked
+        let panel = vscode.window.createWebviewPanel(
+          "chatsPanel",
+          "Chats",
+          vscode.ViewColumn.Two,
+          {}
+        );
+
+        // Handle message fetching when a chat is clicked
+        panel.webview.onDidReceiveMessage(async (chat) => {
+          console.log(chat);
+          try {
+            const messagesResponse = await axios.get(
+              `http://localhost:4000/chat/getMessages?chatId=${chat.chatId}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            const messages = messagesResponse.data;
+            console.log(messages);
+
+            // Dispose of the previous webview panel
+            if (panel) {
+              panel.dispose();
+            }
+
+            // Create a new webview panel to display messages
+            panel = vscode.window.createWebviewPanel(
+              "messagesPanel",
+              "Messages",
+              vscode.ViewColumn.Two,
+              {}
+            );
+
+            // Display messages in the new webview panel
+            panel.webview.html = getMessagesWebviewContent(messages);
+          } catch (error) {
+            vscode.window.showErrorMessage(
+              "Failed to fetch messages: " + error.message
+            );
+          }
+        });
+
+    
+        panel.webview.html = getWebviewContent(chats);
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          "Failed to fetch chats: " + error.message
+        );
+      }
+    }
+  );
+
   // Add the disposable to context subscriptions
-  context.subscriptions.push(disposable);
+  context.subscriptions.push(startCommand);
+  context.subscriptions.push(chatCommand);
+  
 
   // Create UI elements (e.g., a button)
   let loginButton = vscode.window.createStatusBarItem(
@@ -27,71 +105,82 @@ function activate(context) {
   loginButton.show();
 }
 
+function getWebviewContent(chats) {
+  // Construct HTML content to display chats
+  let htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Chats</title>
+          <style>
+              /* Add your CSS styles here */
+          </style>
+      </head>
+      <body>
+          <h1>Chats</h1>
+          <ul>
+  `;
+
+  chats.forEach((chat) => {
+      htmlContent += `<li><button href="#" id="${chat._id}" class="chat-link">${chat.repoName}</button></li>`;
+  });
+
+  htmlContent += `
+          </ul>
+          <script>
+              // Add click event listener for each chat link
+              const chatLinks = document.querySelectorAll('.chat-link');
+              chatLinks.forEach(link => {
+                  link.addEventListener('click', function(event) {
+                      event.preventDefault();
+                      const chatId = event.target.id;
+                      vscode.postMessage({ command: 'chatClicked', chatId: chatId });
+                  });
+              });
+          </script>
+      </body>
+      </html>
+  `;
+
+  return htmlContent;
+}
+
+function getMessagesWebviewContent(messages) {
+  // Construct HTML content to display messages
+  let htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Messages</title>
+          <style>
+              /* Add your CSS styles here */
+          </style>
+      </head>
+      <body>
+          <h1>Messages</h1>
+          <ul>
+  `;
+
+  // Add each message to the list
+  messages.forEach((message) => {
+    htmlContent += `<li>${message.message}</li>`;
+  });
+
+  htmlContent += `
+          </ul>
+      </body>
+      </html>
+  `;
+
+  return htmlContent;
+}
+
 function deactivate() {
   console.log('your extension "devcollab" is now deactivated!');
-}
-
-async function startAuthenticationTimer(gitId) {
-  let duration = 0;
-  let timerInterval;
-
-  timerInterval = setInterval(async () => {
-    duration += 3;
-
-    if (duration >= 60) {
-      clearInterval(timerInterval);
-      vscode.window.showErrorMessage("Authentication failed: Timeout");
-    } else {
-      try {
-        // Send request to localhost:4000/auth/getToken
-        const response = await axios.get(
-          "http://localhost:4000/auth/getToken",
-          {
-            params: { gitId },
-          }
-        );
-
-        if (response.status === 200) {
-          // Extract token from the response
-          const token = response.data.token;
-
-          //@ts-ignore
-          const secrets = globalContext["secrets"]; //SecretStorage-object
-          await secrets.store("token", token); //Save a secret
-
-         
-          console.log("token set");
-          clearInterval(timerInterval);
-          vscode.window.showInformationMessage("Authentication successful!");
-        }
-      } catch (error) {
-        console.error("Failed to fetch token:", error);
-        clearInterval(timerInterval);
-        vscode.window.showErrorMessage("Failed to fetch token");
-      }
-    }
-  }, 3000);
-}
-
-async function authenticateWithGitHub() {
-  const githubAuthUrl = "http://localhost:4000/auth/github"; // Replace this with your actual GitHub authentication URL
-
-  try {
-    // Open the GitHub authentication URL in the default web browser
-    const gitId = await vscode.window.showInputBox({
-      prompt: "Enter your GitHub username",
-      placeHolder: "GitHub username",
-      validateInput: (value) => (value ? null : "GitHub username is required"),
-    });
-
-    if (gitId) {
-      startAuthenticationTimer(gitId);
-      await vscode.env.openExternal(vscode.Uri.parse(githubAuthUrl));
-    }
-  } catch (error) {
-    console.error("Failed to open GitHub authentication URL:", error);
-    vscode.window.showErrorMessage("Failed to open GitHub authentication URL");
-  }
 }
 
 // function getWebviewContent() {

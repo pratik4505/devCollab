@@ -1,0 +1,71 @@
+const vscode = require("vscode");
+const axios = require("axios");
+
+async function startAuthenticationTimer(gitId,globalContext) {
+    let duration = 0;
+    let timerInterval;
+  
+    timerInterval = setInterval(async () => {
+      duration += 3;
+  
+      if (duration >= 60) {
+        clearInterval(timerInterval);
+        vscode.window.showErrorMessage("Authentication failed: Timeout");
+      } else {
+        try {
+          // Send request to localhost:4000/auth/getToken
+          const response = await axios.get(
+            "http://localhost:4000/auth/getToken",
+            {
+              params: { gitId },
+            }
+          );
+  
+          if (response.status === 200) {
+            // Extract token from the response
+            const data = response.data;
+           
+            //@ts-ignore
+            const secrets = globalContext["secrets"]; //SecretStorage-object
+            await secrets.store("token", data.token); //Save a secret
+            await secrets.store("gitId", data.gitId);
+  
+           
+            console.log("token set");
+            clearInterval(timerInterval);
+            vscode.window.showInformationMessage("Authentication successful!");
+          }
+        } catch (error) {
+          console.error("Failed to fetch token:", error);
+          clearInterval(timerInterval);
+          vscode.window.showErrorMessage("Failed to fetch token");
+        }
+      }
+    }, 3000);
+  }
+  
+  async function authenticateWithGitHub(globalContext) {
+    const githubAuthUrl = "http://localhost:4000/auth/github"; // Replace this with your actual GitHub authentication URL
+  
+    try {
+      // Open the GitHub authentication URL in the default web browser
+      const gitId = await vscode.window.showInputBox({
+        prompt: "Enter your GitHub username",
+        placeHolder: "GitHub username",
+        validateInput: (value) => (value ? null : "GitHub username is required"),
+      });
+  
+      if (gitId) {
+        startAuthenticationTimer(gitId,globalContext);
+        await vscode.env.openExternal(vscode.Uri.parse(githubAuthUrl));
+      }
+    } catch (error) {
+      console.error("Failed to open GitHub authentication URL:", error);
+      vscode.window.showErrorMessage("Failed to open GitHub authentication URL");
+    }
+  }
+
+  module.exports={
+    authenticateWithGitHub,
+    startAuthenticationTimer
+  }

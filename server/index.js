@@ -9,6 +9,7 @@ const db = new Database(MONGODB_URI);
 const passport=require('./config/passport-config');
 const gitHubAuth=require('./routes/gitHubAuth')
 const chatRoutes = require("./routes/chatRoutes");
+const socketIo = require("./socket");
 db.connect().catch((err) =>
   console.error("Error connecting to database:", err)
 );
@@ -28,4 +29,8 @@ app.get("/server-status", (req, res) => {
   res.status(200).json({ message: "Server is up and running!" });
 });
 
-app.listen(PORT, () => console.log(`Server up and running on port ${PORT}!`));
+const server = app.listen(PORT, () =>
+  console.log(`Server up and running on port ${PORT}!`)
+);
+
+socketIo.runIO(socketIo.init(server));

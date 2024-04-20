@@ -2,11 +2,11 @@ const Chat=require("../models/Chat")
 const Message=require("../models/Message");
 
 const getChats=async(req,res)=>{
-  const userId = req.userId;
-
+  const gitId = req.gitId;
+  console.log("GIT ID: " + gitId);
   try {
     // Find all chats where a key of the map in the members field is equal to userId
-    const chats = await Chat.find({ [`members.${userId}`]: { $exists: true } });
+    const chats = await Chat.find({ [`members.${gitId}`]: { $exists: true } });
    
     res.json(chats);
   } catch (error) {
@@ -16,10 +16,10 @@ const getChats=async(req,res)=>{
 }
 const getMessages=async(req,res)=>{
   try {
-    const limit = parseInt(req.query.limit) || 50;
-    const createdAt = req.query.createdAt
-      ? new Date(req.query.createdAt)
-      : new Date();
+    // const limit = parseInt(req.query.limit) || 50;
+    // const createdAt = req.query.createdAt
+    //   ? new Date(req.query.createdAt)
+    //   : new Date();
     const chatId = req.query.chatId;
     //console.log(rideId,req.query.createdAt);
     // Find messages based on chatId and createdAt
@@ -30,7 +30,7 @@ const getMessages=async(req,res)=>{
       .sort({ createdAt: -1 }) // Sort in descending order based on createdAt
       // .limit(limit);
 
-      
+      console.log(messages)
     const revMessages = messages.reverse();
 
     res.status(200).json(revMessages);

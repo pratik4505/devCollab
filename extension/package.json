@@ -35,6 +35,10 @@
       {
         "command": "devcollab.start",
         "title": "start devcollab"
+      },
+      {
+        "command": "devcollab.chat",
+        "title": "open chat panel"
       }
     ]
   },

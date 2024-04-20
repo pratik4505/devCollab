@@ -20,6 +20,14 @@ class NodeDependenciesProvider {
           title: "Click Me",
         },
       },
+      {
+        label: "Open Repo Room",
+        collapsibleState: vscode.TreeItemCollapsibleState.None,
+        command: {
+          command: "devcollab.chat",
+          title: "Click Me",
+        },
+      },
     ];
   }
 

@@ -156,12 +156,6 @@ async function activate(context) {
     })
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand("devcollab.start", () => {
-      authenticateWithGitHub();
-    })
-  );
-
   let chatCommand = vscode.commands.registerCommand(
     "devcollab.chat",
     async () => {
@@ -312,7 +306,7 @@ function getWebviewContent(chats) {
           </style>
       </head>
       <body>
-          <h1>Chats</h1>
+          <h1>Repo Room</h1>
           <ul>
   `;
 

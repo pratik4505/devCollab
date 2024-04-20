@@ -41,7 +41,8 @@ exports.runIO = (io) => {
         message: data.message,
         createdAt: data.createdAt,
         repoName:data.repoName,
-        chatId:data.room
+        chatId:data.room,
+        avatarUrl:data.avatarUrl
       });
     });
 

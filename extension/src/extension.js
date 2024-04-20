@@ -4,7 +4,7 @@ const { authenticateWithGitHub } = require("./authenticate");
 const axios = require("axios");
 const io = require("socket.io-client");
 const SERVER_URL ="https://devcollab-w48p.onrender.com";
-const socket = io(SERVER_URL, {
+const socket = io(SERVER_URL.replace("http", "ws"), {
   transports: ["websocket"],
   upgrade: false,
   withCredentials: true,
@@ -20,19 +20,26 @@ async function activate(context) {
   socket.on("connect", () => {
     console.log("Connected to Socket.IO server");
   });
+  socket.on("connect_error", (error) => {
+    console.error("Socket.IO connection error:", error);
+  });
+  socket.emit("setup", 'pratik4505');
 
   socket.on("receiveMessage", (data) => {
-    const { senderId, message, createdAt, repoName, chatId } = data;
-
+    const { senderId, message, createdAt, repoName, chatId,avatarUrl } = data;
+    console.log("receiveMessage",data);
     // Check if a webview panel exists for this chatId
-    if (chatPanels[chatId]) {
+    // if (chatPanels[chatId]) {
       // If the panel is open, send the message to the webview
-      chatPanels[chatId].webview.postMessage(data);
-    } else {
-      vscode.window.showInformationMessage(
-        `New Message Received:\nRepo: ${repoName}\nSender: ${senderId}\nMessage: ${message}`
-      );
-    }
+       chatPanels[chatId].webview.postMessage(data);
+    // } else {
+    //   vscode.window.showInformationMessage(
+    //     `New Message Received:\nRepo: ${repoName}\nSender: ${senderId}\nMessage: ${message}`
+    //   );
+    // }
+    vscode.window.showInformationMessage(
+      `New Message Received:\nRepo: ${repoName}\nSender: ${senderId}\nMessage: ${message}`
+    );
   });
 
   let startCommand = vscode.commands.registerCommand("devcollab.start", () => {
@@ -109,6 +116,7 @@ async function activate(context) {
                 room: chatId,
                 createdAt: new Date().toISOString(),
                 repoName: repoName,
+                avatarUrl:selectedChat.members[gitId]
               });
 
               try {
@@ -292,7 +300,7 @@ function getMessagesWebviewContent(messages, gitId, chat) {
   `;
 
   // Add each message to the list
-  console.log("In messae panel",messages,chat)
+  //console.log("In messae panel",messages,chat)
   messages.forEach((message) => {
       const messageClass = message.senderId === gitId ? "outgoing" : "incoming";
 
@@ -346,7 +354,7 @@ function getMessagesWebviewContent(messages, gitId, chat) {
                 const listItem = document.createElement('li');
                 listItem.innerHTML = 
                     '<div class="message-sender">' +
-                    '<img src="' + "${chat.members}.[messageData.senderId].avatarUrl" + '" alt="' + messageData.senderId + '" class="sender-avatar">' +
+                    '<img src="' + messageData.avatarUrl + '" alt="' + messageData.senderId + '" class="sender-avatar">' +
                     '<span class="sender-name">' + messageData.senderId + '</span>' +
                     '</div>' +
                     '<div class="message-text">' + messageData.message + '</div>';
@@ -365,6 +373,7 @@ function getMessagesWebviewContent(messages, gitId, chat) {
 
 function deactivate() {
   console.log('your extension "devcollab" is now deactivated!');
+  socket.disconnect();
 }
 
 

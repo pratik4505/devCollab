@@ -7,6 +7,11 @@ const path = require("path");
 const io = require("socket.io-client");
 const SERVER_URL = "https://devcollab-w48p.onrender.com";
 const NodeDependenciesProvider = require("./Nodepack");
+// const Peer = require('peerjs');
+// let peer;
+// const groupConnections = {};
+
+
 const socket = io(SERVER_URL.replace("http", "ws"), {
   transports: ["websocket"],
   upgrade: false,
@@ -49,9 +54,43 @@ async function activate(context) {
     );
   });
 
+  // peer = new Peer('pratik4505');
+
+  // peer.on('connection', (connection) => {
+  //   console.log('Connected to peer:', connection.peer);
+  //   groupConnections[connection.peer] = connection;
+
+  //   connection.on('data', (data) => {
+  //     console.log('Received data from peer:', data);
+  //   });
+
+  //   connection.on('close', () => {
+  //     delete groupConnections[connection.peer];
+  //     console.log('Connection closed with peer:', connection.peer);
+  //   });
+  // });
+
+  // peer.on('call', (call) => {
+  //   console.log('Received call from peer:', call.peer);
+
+  //   navigator.mediaDevices.getUserMedia({ audio: true })
+  //     .then((stream) => {
+  //       call.answer(stream); // Answer with the local audio stream
+  //       call.on('stream', (remoteStream) => {
+  //         playAudioStream(remoteStream); // Play the remote audio stream
+  //       });
+  //     })
+  //     .catch((error) => {
+  //       console.error('Error accessing microphone:', error);
+  //     });
+  // });
+
   let startCommand = vscode.commands.registerCommand("devcollab.start", () => {
     authenticateWithGitHub(context);
   });
+
+
+
   context.subscriptions.push(
     vscode.commands.registerCommand("devcollab.getData", async () => {
       // Get the active workspace folder
@@ -259,7 +298,8 @@ async function activate(context) {
             newPanel.webview.html = getMessagesWebviewContent(
               messages,
               gitId,
-              selectedChat
+              selectedChat,
+              socket
             );
           } catch (error) {
             vscode.window.showErrorMessage(
@@ -291,6 +331,7 @@ async function activate(context) {
   // Show the button in the status bar
   loginButton.show();
 }
+
 
 function getWebviewContent(chats) {
   // Construct HTML content to display chats
@@ -385,7 +426,7 @@ function getWebviewContent(chats) {
 
   return htmlContent;
 }
-function getMessagesWebviewContent(messages, gitId, chat) {
+function getMessagesWebviewContent(messages, gitId, chat, socket) {
   // Construct HTML content to display messages
   let htmlContent = `
       <!DOCTYPE html>
@@ -396,93 +437,84 @@ function getMessagesWebviewContent(messages, gitId, chat) {
           <title>Messages</title>
           <style>
               /* Add your CSS styles here */
-              /* Add your CSS styles here */
-
-body {
-    font-family: Arial, sans-serif;
-    // background-color: #f9f9f9;
-    margin: 0;
-    padding: 0;
-}
-
-h1 {
-    color: #333;
-    text-align: center;
-}
-
-.message {
-    list-style-type: none;
-    padding: 0;
-    backgournd-color:"blue";
-}
-
-.message li {
-    margin-bottom: 20px;
-    padding: 10px;
-}
-
-.message-sender {
-    display: flex;
-    align-items: center;
-    margin-bottom: 5px;
-}
-
-.sender-avatar {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    margin-right: 10px;
-}
-
-.sender-name {
-    font-weight: bold;
-    margin-right: 10px;
-}
-
-.message-text {
-    word-wrap: break-word;
-}
-
-.message-input {
-    display: flex;
-    margin-top: 20px;
-}
-
-#messageInput {
-    flex: 1;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    margin-right: 10px;
-}
-
-#sendMessageButton {
-    padding: 10px 20px;
-    background-color: #007bff;
-    border: none;
-    border-radius: 5px;
-    color: #fff;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-#sendMessageButton:hover {
-    background-color: #0056b3;
-}
-
+              body {
+                  font-family: Arial, sans-serif;
+                  margin: 0;
+                  padding: 0;
+              }
+              h1 {
+                  color: #333;
+                  text-align: center;
+              }
+              .message {
+                  list-style-type: none;
+                  padding: 0;
+              }
+              .message li {
+                  margin-bottom: 20px;
+                  padding: 10px;
+              }
+              .message-sender {
+                  display: flex;
+                  align-items: center;
+                  margin-bottom: 5px;
+              }
+              .sender-avatar {
+                  width: 30px;
+                  height: 30px;
+                  border-radius: 50%;
+                  margin-right: 10px;
+              }
+              .sender-name {
+                  font-weight: bold;
+                  margin-right: 10px;
+              }
+              .message-text {
+                  word-wrap: break-word;
+              }
+              .message-input {
+                  display: flex;
+                  margin-top: 20px;
+              }
+              #messageInput {
+                  flex: 1;
+                  padding: 10px;
+                  border: 1px solid #ccc;
+                  border-radius: 5px;
+                  margin-right: 10px;
+              }
+              #sendMessageButton {
+                  padding: 10px 20px;
+                  background-color: #007bff;
+                  border: none;
+                  border-radius: 5px;
+                  color: #fff;
+                  cursor: pointer;
+                  transition: background-color 0.3s ease;
+              }
+              #sendMessageButton:hover {
+                  background-color: #0056b3;
+              }
           </style>
       </head>
       <body>
           <h1>Messages</h1>
+          
+          <!-- Online members dropdown -->
+          <select id="onlineMembers">
+              <option value="" disabled selected>Select a member</option>
+              ${Object.keys(chat.members).map((key) => `
+                  <option value="${key}" data-online="false">${key} (Offline)</option>
+              `).join('')}
+          </select>
+          
           <ul id="messageList" class="message">
   `;
 
   // Add each message to the list
-  //console.log("In messae panel",messages,chat)
   messages.forEach((message) => {
     const messageClass = message.senderId === gitId ? "outgoing" : "incoming";
 
-    // Construct the HTML for the message including sender's name and avatar
     htmlContent += `
           <li class="message ${messageClass}">
               <div class="message-sender">
@@ -497,29 +529,45 @@ h1 {
 
   htmlContent += `
           </ul>
-
-          <!-- Input box and send button -->
           <div class="message-input">
               <input type="text" id="messageInput" placeholder="Type your message...">
               <button type="submit" id="sendMessageButton">Send</button>
           </div>
 
           <script>
-              // Add event listener for sending message
               const vscode = acquireVsCodeApi();
               const messageList = document.getElementById('messageList');
-
+              const onlineMembers = document.getElementById('onlineMembers');
+              
+              // Helper function to update the dropdown
+              function updateOnlineStatus(gitId, online) {
+                  const options = onlineMembers.children;
+                  for (let i = 0; i < options.length; i++) {
+                      if (options[i].value === gitId) {
+                          options[i].setAttribute('data-online', online);
+                          options[i].innerHTML = gitId + (online ? ' (Online)' : ' (Offline)');
+                      }
+                  }
+              }
+              
+              ${socket}.on('online', (data) => {
+                  if (chat.members[data.gitId]) {
+                      updateOnlineStatus(data.gitId, true);
+                  }
+              });
+              
               document.getElementById('sendMessageButton').addEventListener('click', function() {
                   const messageInput = document.getElementById('messageInput');
                   const message = messageInput.value.trim();
                   if (message) {
                       const listItem = document.createElement('li');
                       listItem.innerHTML = 
-                          '<div class="message-sender">' +
-                           + "${gitId}" + '</span>' +
-                          '</div>' +
-                          '<div class="message-text">' + message + '</div>';
-                      listItem.classList.add('message', 'outgoing'); // Add both classes to the listItem
+                      '<div class="message-sender">' +
+                      '<img src="' + "${chat.members[gitId].avatarUrl}" + '" alt="' + "${gitId}" + '" class="sender-avatar">' +
+                      '<span class="sender-name">' + "${gitId}" + '</span>' +
+                      '</div>' +
+                      '<div class="message-text">' + message + '</div>';
+                      listItem.classList.add('message', 'outgoing');
                       messageList.appendChild(listItem);
                       
                       vscode.postMessage({ command: 'sendMessage', message: message, chatId: "${chat._id}", gitId: "${gitId}", repoName: "${chat.repoName}" });
@@ -527,7 +575,6 @@ h1 {
                   }
               });
 
-              // Listen for messages from the extension
               window.addEventListener('message', event => {
                 const messageData = event.data;
                 const listItem = document.createElement('li');
@@ -537,7 +584,7 @@ h1 {
                     '<span class="sender-name">' + messageData.senderId + '</span>' +
                     '</div>' +
                     '<div class="message-text">' + messageData.message + '</div>';
-                listItem.classList.add('message', 'incoming'); // Assume all received messages are incoming
+                listItem.classList.add('message', 'incoming');
                 messageList.appendChild(listItem);
             });
             

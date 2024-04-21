@@ -1,5 +1,5 @@
 let io;
-const Chat=require('./models/Chat')
+const Chat = require("./models/Chat");
 exports.init = (httpServer) => {
   io = require("socket.io")(httpServer);
   return io;
@@ -20,6 +20,18 @@ exports.runIO = (io) => {
       // console.log("setup");
       socket.join(room.toString());
 
+      const onlineInterval = setInterval(() => {
+        socket.emit("online", { gitId: room });
+        console.log('online',room);
+      }, 5000);
+
+      // Ensure you clear the interval when the user disconnects
+      socket.on("disconnect", () => {
+        clearInterval(onlineInterval);
+
+        console.log("socket disconnected");
+      });
+
       try {
         const chats = await Chat.find({
           [`members.${room}`]: { $exists: true },
@@ -35,16 +47,15 @@ exports.runIO = (io) => {
     });
 
     socket.on("sendMessage", (data) => {
-     console.log(data);
+      console.log(data);
       socket.to(data.room).emit("receiveMessage", {
         senderId: data.senderId,
         message: data.message,
         createdAt: data.createdAt,
-        repoName:data.repoName,
-        chatId:data.room,
-        avatarUrl:data.avatarUrl
+        repoName: data.repoName,
+        chatId: data.room,
+        avatarUrl: data.avatarUrl,
       });
     });
-
   });
 };

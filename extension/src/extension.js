@@ -31,36 +31,44 @@ async function activate(context) {
   socket.on("connect_error", (error) => {
     console.error("Socket.IO connection error:", error);
   });
-  
+
   socket.on("receiveMessage", (data) => {
     const { senderId, message, createdAt, repoName, chatId, avatarUrl } = data;
     console.log("receiveMessage", data);
-    
-    if(chatPanels[chatId])
-    chatPanels[chatId].webview.postMessage(data);
-    
-    if(!chatPanels[chatId])
-    vscode.window.showInformationMessage(
-      `New Message Received:\nRepo: ${repoName}\nSender: ${senderId}\nMessage: ${message}`
-    );
+
+    if (chatPanels[chatId]) chatPanels[chatId].webview.postMessage({...data ,command:'message'});
+
+    if (!chatPanels[chatId])
+      vscode.window.showInformationMessage(
+        `New Message Received:\nRepo: ${repoName}\nSender: ${senderId}\nMessage: ${message}`
+      );
   });
 
-  
-
-  let startCommand = vscode.commands.registerCommand("devcollab.start", async () => {
-    const secrets = context["secrets"];
-        const token = await secrets.get("token");
-        const gitId = await secrets.get("gitId");
-
-        if(token){
-          socket.emit("setup", gitId);
-        }else{
-          authenticateWithGitHub(context,socket);
-        }
-
+  // Socket event handler for 'online'
+  socket.on("online", (data) => {
+    console.log(data);
+    Object.entries(data).forEach(([key, value]) => {
+      value.webview.postMessage({
+        command:'online',
+        gitId: data.gitId,
+      });
+    });
   });
 
+  let startCommand = vscode.commands.registerCommand(
+    "devcollab.start",
+    async () => {
+      const secrets = context["secrets"];
+      const token = await secrets.get("token");
+      const gitId = await secrets.get("gitId");
 
+      if (token) {
+        socket.emit("setup", gitId);
+      } else {
+        authenticateWithGitHub(context, socket);
+      }
+    }
+  );
 
   context.subscriptions.push(
     vscode.commands.registerCommand("devcollab.getData", async () => {
@@ -303,7 +311,6 @@ async function activate(context) {
   // loginButton.show();
 }
 
-
 function getWebviewContent(chats) {
   // Construct HTML content to display chats
   let htmlContent = `
@@ -474,9 +481,13 @@ function getMessagesWebviewContent(messages, gitId, chat, socket) {
           <!-- Online members dropdown -->
           <select id="onlineMembers">
               <option value="" disabled selected>Select a member</option>
-              ${Object.keys(chat.members).map((key) => `
+              ${Object.keys(chat.members)
+                .map(
+                  (key) => `
                   <option value="${key}" data-online="false">${key} (Offline)</option>
-              `).join('')}
+              `
+                )
+                .join("")}
           </select>
           
           <ul id="messageList" class="message">
@@ -543,7 +554,10 @@ function getMessagesWebviewContent(messages, gitId, chat, socket) {
 
               window.addEventListener('message', event => {
                 const messageData = event.data;
-                const listItem = document.createElement('li');
+                if(messageData.command === 'online') {
+                  updateOnlineStatus(messageData.gitId,true);
+                }else{
+                  const listItem = document.createElement('li');
                 listItem.innerHTML = 
                     '<div class="message-sender">' +
                     '<img src="' + messageData.avatarUrl + '" alt="' + messageData.senderId + '" class="sender-avatar">' +
@@ -552,6 +566,8 @@ function getMessagesWebviewContent(messages, gitId, chat, socket) {
                     '<div class="message-text">' + messageData.message + '</div>';
                 listItem.classList.add('message', 'incoming');
                 messageList.appendChild(listItem);
+                }
+                
             });
             
           </script>

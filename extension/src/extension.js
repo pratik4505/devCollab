@@ -46,8 +46,8 @@ async function activate(context) {
 
   // Socket event handler for 'online'
   socket.on("online", (data) => {
-    console.log(data);
-    Object.entries(data).forEach(([key, value]) => {
+    console.log(data,chatPanels);
+    Object.entries(chatPanels).forEach(([key, value]) => {
       value.webview.postMessage({
         command:'online',
         gitId: data.gitId,

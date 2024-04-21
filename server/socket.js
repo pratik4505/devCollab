@@ -21,7 +21,7 @@ exports.runIO = (io) => {
       socket.join(room.toString());
 
       const onlineInterval = setInterval(() => {
-        socket.emit("online", { gitId: room });
+        io.emit("online", { gitId: room });
         console.log('online',room);
       }, 5000);
 

@@ -36,7 +36,8 @@ async function activate(context) {
     const { senderId, message, createdAt, repoName, chatId, avatarUrl } = data;
     console.log("receiveMessage", data);
 
-    if (chatPanels[chatId]) chatPanels[chatId].webview.postMessage({...data ,command:'message'});
+    if (chatPanels[chatId])
+      chatPanels[chatId].webview.postMessage({ ...data, command: "message" });
 
     if (!chatPanels[chatId])
       vscode.window.showInformationMessage(
@@ -46,10 +47,10 @@ async function activate(context) {
 
   // Socket event handler for 'online'
   socket.on("online", (data) => {
-    console.log(data);
-    Object.entries(data).forEach(([key, value]) => {
+    console.log(data, chatPanels);
+    Object.entries(chatPanels).forEach(([key, value]) => {
       value.webview.postMessage({
-        command:'online',
+        command: "online",
         gitId: data.gitId,
       });
     });
@@ -323,43 +324,43 @@ function getWebviewContent(chats) {
           <style>
           /* Add your CSS styles here */
           body {
-              font-family: Arial, sans-serif;
-              // background-color: #f0f0f0;
-              margin: 0;
-              padding: 0;
-          }
-          
-          h1 {
-              color: white;
-              text-align: center;
-          }
-          
-          ul {
-              list-style-type: none;
-              padding: 0;
-          }
-          
-          li {
-              margin-bottom: 10px;
-          }
-          
-          .chat-link {
-              display: block;
-              width: 100%;
-              padding: 10px;
-              background-color: #fff;
-              border: 1px solid #ccc;
-              border-radius: 5px;
-              text-align: center;
-              text-decoration: none;
-              color: #333;
-              cursor: pointer;
-              transition: background-color 0.3s ease;
-          }
-          
-          .chat-link:hover {
-              background-color: #f0f0f0;
-          }
+            font-family: Arial, sans-serif;
+            // background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+        }
+        
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        
+        li {
+            margin: 10px;
+        }
+        
+        .chat-link {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            text-decoration: none;
+            color: #333;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        
+        .chat-link:hover {
+            background-color: #f0f0f0;
+        }
           
           </style>
       </head>
@@ -415,53 +416,68 @@ function getMessagesWebviewContent(messages, gitId, chat, socket) {
           <title>Messages</title>
           <style>
               /* Add your CSS styles here */
-              body {
-                  font-family: Arial, sans-serif;
-                  margin: 0;
-                  padding: 0;
-              }
-              h1 {
-                  color: #333;
-                  text-align: center;
-              }
-              .message {
-                  list-style-type: none;
-                  padding: 0;
-              }
-              .message li {
-                  margin-bottom: 20px;
-                  padding: 10px;
-              }
-              .message-sender {
-                  display: flex;
-                  align-items: center;
-                  margin-bottom: 5px;
-              }
-              .sender-avatar {
-                  width: 30px;
-                  height: 30px;
-                  border-radius: 50%;
-                  margin-right: 10px;
-              }
-              .sender-name {
-                  font-weight: bold;
-                  margin-right: 10px;
-              }
-              .message-text {
-                  word-wrap: break-word;
-              }
-              .message-input {
-                  display: flex;
-                  margin-top: 20px;
-              }
-              #messageInput {
-                  flex: 1;
-                  padding: 10px;
-                  border: 1px solid #ccc;
-                  border-radius: 5px;
-                  margin-right: 10px;
-              }
-              #sendMessageButton {
+             
+            h1 {
+                color: #333;
+                text-align: center;
+            }
+            #messageList {
+                list-style-type: none;
+                display:flex;
+                flex-direction:column;
+                padding: 0;
+                margin-bottom:50px;
+                padding-bottom:80px;
+            }
+            .message {
+                margin-bottom: 20px;
+                padding: 10px;
+            }
+            .incoming {
+                max-width:70%;
+                align-self: flex-start; /* Align outgoing messages to the left */
+            }
+            .outgoing {
+              max-width:70%;
+                align-self: flex-end; /* Align incoming messages to the right */
+            }
+            .message-sender {
+                display: flex;
+                align-items: center;
+                margin-bottom: 5px;
+            }
+            .sender-avatar {
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                margin-right: 10px;
+            }
+            .sender-name {
+                font-weight: bold;
+                margin-right: 10px;
+            }
+            .message-text {
+                word-wrap: break-word;
+            }
+            .message-input {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              width: 100%;
+              display: flex;
+              align-items: center;
+              background-color: #fff; /* Set background color for message input bar */
+              padding: 10px;
+              box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1); /* Add shadow to distinguish from content */
+          }
+            #messageInput {
+                flex: 1;
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                margin-right: 10px;
+            }
+            #sendMessageButton {
                   padding: 10px 20px;
                   background-color: #007bff;
                   border: none;
@@ -469,10 +485,11 @@ function getMessagesWebviewContent(messages, gitId, chat, socket) {
                   color: #fff;
                   cursor: pointer;
                   transition: background-color 0.3s ease;
-              }
-              #sendMessageButton:hover {
-                  background-color: #0056b3;
-              }
+              
+            }
+            #sendMessageButton:hover {
+                background-color: #0056b3;
+            }
           </style>
       </head>
       <body>
@@ -513,14 +530,29 @@ function getMessagesWebviewContent(messages, gitId, chat, socket) {
           </ul>
           <div class="message-input">
               <input type="text" id="messageInput" placeholder="Type your message...">
+
               <button type="submit" id="sendMessageButton">Send</button>
           </div>
+
 
           <script>
               const vscode = acquireVsCodeApi();
               const messageList = document.getElementById('messageList');
               const onlineMembers = document.getElementById('onlineMembers');
-              
+              window.onscroll = function() {scrollFunction()}; 
+ 
+    function scrollFunction() { 
+      if (document.body.scrollTop > 5 || document.documentElement.scrollTop > 5) { 
+        document.getElementById("sendMessageButton").style.display = "block"; 
+      } else { 
+        document.getElementById("sendMessageButton").style.display = "none"; 
+      } 
+    } 
+ 
+    document.getElementById('sendMessageButton').addEventListener('click', function() { 
+      document.body.scrollTop = document.body.scrollHeight; 
+      document.documentElement.scrollTop = document.documentElement.scrollHeight; 
+    }); 
               // Helper function to update the dropdown
               function updateOnlineStatus(gitId, online) {
                   const options = onlineMembers.children;
@@ -546,7 +578,6 @@ function getMessagesWebviewContent(messages, gitId, chat, socket) {
                       '<div class="message-text">' + message + '</div>';
                       listItem.classList.add('message', 'outgoing');
                       messageList.appendChild(listItem);
-                      
                       vscode.postMessage({ command: 'sendMessage', message: message, chatId: "${chat._id}", gitId: "${gitId}", repoName: "${chat.repoName}" });
                       messageInput.value = '';
                   }

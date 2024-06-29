@@ -39,7 +39,7 @@
 ```
    cd server
    npm install
-
+̥
    cd extension
    npm install
 ```
@@ -56,5 +56,5 @@ npm start
 ```
 
 ## Deployed 
-Access the hosted extension named `DevCollabHackers` in vs code extension store
+Access the hosted extension named `DevCollab` in vs code extension store
 
